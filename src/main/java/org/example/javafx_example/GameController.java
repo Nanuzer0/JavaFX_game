@@ -175,8 +175,8 @@ public class GameController {
         shotsLabel.setText("15");
         
         // Сброс позиций мишеней
-        target1.setLayoutY(track1.getStartY());
-        target2.setLayoutY(track2.getStartY());
+        target1.setLayoutY(track1.getStartY()+((track1.getEndY()-track1.getStartY())/2));
+        target2.setLayoutY(track2.getStartY()+((track2.getEndY()-track2.getStartY())/2));
         target1MovingDown = true;
         target2MovingDown = true;
         

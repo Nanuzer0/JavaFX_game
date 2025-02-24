@@ -26,8 +26,8 @@
         </Polygon>
         
         <!-- Мишени -->
-        <Circle fx:id="target1" fill="RED" layoutX="400.0" layoutY="100.0" radius="15.0" />
-        <Circle fx:id="target2" fill="RED" layoutX="600.0" layoutY="100.0" radius="15.0" />
+        <Circle fx:id="target1" fill="RED" layoutX="400.0" layoutY="300.0" radius="30.0" />
+        <Circle fx:id="target2" fill="RED" layoutX="600.0" layoutY="300.0" radius="15.0" />
                 
         <!-- Информация и кнопки -->
         <VBox layoutX="650.0" layoutY="50.0" spacing="10">
@@ -52,7 +52,7 @@
                 </font>
             </Label>
         </VBox>
-        <HBox layoutX="83.0" layoutY="504.0" prefHeight="60.0" prefWidth="523.0" spacing="10">
+        <HBox layoutX="78.0" layoutY="521.0" prefHeight="35.0" prefWidth="523.0" spacing="10">
             <Button onAction="#startGame" prefHeight="25.0" prefWidth="108.0" text="Начало игры" />
             <Button onAction="#stopGame" text="Остановить игру" />
             <Button onAction="#pauseGame" text="Пауза" />
