@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import java.lang.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.shape.*?>
+<?import javafx.scene.text.*?>
+
+<AnchorPane fx:id="gamePane" prefHeight="600.0" prefWidth="800.0" xmlns="http://javafx.com/javafx/17.0.2-ea" xmlns:fx="http://javafx.com/fxml/1" fx:controller="org.example.javafx_example.GameController">
+    <children>
+        <!-- Линии движения мишеней -->
+        <Line fx:id="track1" endX="400.0" endY="500.0" startX="400.0" startY="100.0" stroke="GRAY" strokeWidth="1" />
+        <Line fx:id="track2" endX="600.0" endY="500.0" startX="600.0" startY="100.0" stroke="GRAY" strokeWidth="1" />
+              
+        <!-- Стрелок -->
+        <Rectangle fx:id="shooterBase" fill="YELLOW" height="600.0" layoutX="-2.0" layoutY="0.0" width="72.0" />
+        <Polygon fx:id="shooter" fill="BLUE" layoutX="24.0" layoutY="300.0">
+            <points>
+                <Double fx:value="0.0" />
+                <Double fx:value="-15.0" />
+                <Double fx:value="20.0" />
+                <Double fx:value="0.0" />
+                <Double fx:value="0.0" />
+                <Double fx:value="15.0" />
+            </points>
+        </Polygon>
+        
+        <!-- Мишени -->
+        <Circle fx:id="target1" fill="RED" layoutX="400.0" layoutY="100.0" radius="15.0" />
+        <Circle fx:id="target2" fill="RED" layoutX="600.0" layoutY="100.0" radius="15.0" />
+                
+        <!-- Информация и кнопки -->
+        <VBox layoutX="650.0" layoutY="50.0" spacing="10">
+            <Label text="Счет игрока:">
+                <font>
+                    <Font size="18.0" />
+                </font>
+            </Label>
+            <Label fx:id="scoreLabel" text="0">
+                <font>
+                    <Font size="24.0" />
+                </font>
+            </Label>
+            <Label text="Выстрелов:">
+                <font>
+                    <Font size="18.0" />
+                </font>
+            </Label>
+            <Label fx:id="shotsLabel" text="15">
+                <font>
+                    <Font size="24.0" />
+                </font>
+            </Label>
+        </VBox>
+        <HBox layoutX="83.0" layoutY="504.0" prefHeight="60.0" prefWidth="523.0" spacing="10">
+            <Button onAction="#startGame" prefHeight="25.0" prefWidth="108.0" text="Начало игры" />
+            <Button onAction="#stopGame" text="Остановить игру" />
+            <Button onAction="#pauseGame" text="Пауза" />
+            <Button onAction="#shoot" text="Выстрел" />
+        </HBox>
+    </children>
+</AnchorPane>
