@@ -25,7 +25,8 @@ public class GameController {
     private int shots = 15;
     private boolean isPlaying = false;
     private boolean isPaused = false;
-    private Thread gameThread;
+    private Thread target1Thread;
+    private Thread target2Thread;
     private double target1Speed = 1.0;
     private double target2Speed = target1Speed*2;
     private boolean target1MovingDown = true;
@@ -33,40 +34,53 @@ public class GameController {
 
     @FXML
     public void initialize() {
-        setupGameThread();
+        setupTargetThreads();
     }
 
-    private void setupGameThread() {
-        gameThread = new Thread(() -> {
+    private void setupTargetThreads() {
+        // Поток для первой мишени
+        target1Thread = new Thread(() -> {
             while (!Thread.currentThread().isInterrupted()) {
                 if (isPlaying && !isPaused) {
-                    Platform.runLater(this::updateTargets);
+                    Platform.runLater(() -> {
+                        double newY = target1.getLayoutY() + (target1MovingDown ? target1Speed : -target1Speed);
+                        if (newY >= track1.getEndY() || newY <= track1.getStartY()) {
+                            target1MovingDown = !target1MovingDown;
+                        }
+                        target1.setLayoutY(newY);
+                    });
                 }
                 try {
-                    Thread.sleep(16); // примерно 60 FPS
+                    Thread.sleep(16);
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                     break;
                 }
             }
         });
-        gameThread.setDaemon(true);
-    }
+        target1Thread.setDaemon(true);
 
-    private void updateTargets() {
-        // Движение первой мишени (ближней)
-        double newY1 = target1.getLayoutY() + (target1MovingDown ? target1Speed : -target1Speed);
-        if (newY1 >= track1.getEndY() || newY1 <= track1.getStartY()) {
-            target1MovingDown = !target1MovingDown;
-        }
-        target1.setLayoutY(newY1);
-
-        // Движение второй мишени (дальней)
-        double newY2 = target2.getLayoutY() + (target2MovingDown ? target2Speed : -target2Speed);
-        if (newY2 >= track2.getEndY() || newY2 <= track2.getStartY()) {
-            target2MovingDown = !target2MovingDown;
-        }
-        target2.setLayoutY(newY2);
+        // Поток для второй мишени
+        target2Thread = new Thread(() -> {
+            while (!Thread.currentThread().isInterrupted()) {
+                if (isPlaying && !isPaused) {
+                    Platform.runLater(() -> {
+                        double newY = target2.getLayoutY() + (target2MovingDown ? target2Speed : -target2Speed);
+                        if (newY >= track2.getEndY() || newY <= track2.getStartY()) {
+                            target2MovingDown = !target2MovingDown;
+                        }
+                        target2.setLayoutY(newY);
+                    });
+                }
+                try {
+                    Thread.sleep(16);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
+        });
+        target2Thread.setDaemon(true);
     }
 
     @FXML
@@ -166,19 +180,26 @@ public class GameController {
         target1MovingDown = true;
         target2MovingDown = true;
         
-        // Запускаем новый поток
-        if (gameThread != null && gameThread.isAlive()) {
-            gameThread.interrupt();
+        // Запускаем новые потоки
+        if (target1Thread != null && target1Thread.isAlive()) {
+            target1Thread.interrupt();
         }
-        setupGameThread();
-        gameThread.start();
+        if (target2Thread != null && target2Thread.isAlive()) {
+            target2Thread.interrupt();
+        }
+        setupTargetThreads();
+        target1Thread.start();
+        target2Thread.start();
     }
 
     @FXML
     private void stopGame() {
         isPlaying = false;
-        if (gameThread != null) {
-            gameThread.interrupt();
+        if (target1Thread != null) {
+            target1Thread.interrupt();
+        }
+        if (target2Thread != null) {
+            target2Thread.interrupt();
         }
     }
 
