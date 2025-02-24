@@ -1,6 +1,6 @@
 package org.example.javafx_example;
 
-import javafx.animation.AnimationTimer;
+import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.scene.control.Label;
 import javafx.scene.layout.AnchorPane;
@@ -25,26 +25,32 @@ public class GameController {
     private int shots = 15;
     private boolean isPlaying = false;
     private boolean isPaused = false;
-    private AnimationTimer gameLoop;
-    private double target1Speed = 0.5;
+    private Thread gameThread;
+    private double target1Speed = 1.0;
     private double target2Speed = target1Speed*2;
     private boolean target1MovingDown = true;
     private boolean target2MovingDown = true;
 
     @FXML
     public void initialize() {
-        setupGameLoop();
+        setupGameThread();
     }
 
-    private void setupGameLoop() {
-        gameLoop = new AnimationTimer() {
-            @Override
-            public void handle(long now) {
-                if (!isPaused) {
-                    updateTargets();
+    private void setupGameThread() {
+        gameThread = new Thread(() -> {
+            while (!Thread.currentThread().isInterrupted()) {
+                if (isPlaying && !isPaused) {
+                    Platform.runLater(this::updateTargets);
+                }
+                try {
+                    Thread.sleep(16); // примерно 60 FPS
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
                 }
             }
-        };
+        });
+        gameThread.setDaemon(true);
     }
 
     private void updateTargets() {
@@ -96,34 +102,48 @@ public class GameController {
         
         gamePane.getChildren().add(arrow);
         
-        // Анимация полета стрелы
-        AnimationTimer arrowAnimation = new AnimationTimer() {
-            @Override
-            public void handle(long now) {
-                double arrowSpeed = 5;
-                arrow.setLayoutX(arrow.getLayoutX() + arrowSpeed);
-                
-                // Проверка попадания
-                if (arrow.getBoundsInParent().intersects(target1.getBoundsInParent())) {
-                    score += 1;
-                    scoreLabel.setText(String.valueOf(score));
-                    gamePane.getChildren().remove(arrow);
-                    this.stop();
-                } else if (arrow.getBoundsInParent().intersects(target2.getBoundsInParent())) {
-                    score += 2;
-                    scoreLabel.setText(String.valueOf(score));
-                    gamePane.getChildren().remove(arrow);
-                    this.stop();
-                }
-                
-                // Удаляем стрелу, если она вылетела за пределы экрана
-                if (arrow.getLayoutX() > gamePane.getWidth()) {
-                    gamePane.getChildren().remove(arrow);
-                    this.stop();
+        // Создаем поток для анимации стрелы
+        Thread arrowThread = new Thread(() -> {
+            double arrowSpeed = 10;
+            final boolean[] hitRegistered = {false}; // флаг для отслеживания попадания
+            
+            while (!Thread.currentThread().isInterrupted()) {
+                try {
+                    Thread.sleep(16);
+                    Platform.runLater(() -> {
+                        arrow.setLayoutX(arrow.getLayoutX() + arrowSpeed);
+                        
+                        // Проверка попадания только если попадание еще не засчитано
+                        if (!hitRegistered[0]) {
+                            if (arrow.getBoundsInParent().intersects(target1.getBoundsInParent())) {
+                                hitRegistered[0] = true;
+                                score += 1;
+                                scoreLabel.setText(String.valueOf(score));
+                                gamePane.getChildren().remove(arrow);
+                                Thread.currentThread().interrupt();
+                            } else if (arrow.getBoundsInParent().intersects(target2.getBoundsInParent())) {
+                                hitRegistered[0] = true;
+                                score += 2;
+                                scoreLabel.setText(String.valueOf(score));
+                                gamePane.getChildren().remove(arrow);
+                                Thread.currentThread().interrupt();
+                            }
+                        }
+                        
+                        // Удаляем стрелу, если она вылетела за пределы экрана
+                        if (arrow.getLayoutX() > gamePane.getWidth()) {
+                            gamePane.getChildren().remove(arrow);
+                            Thread.currentThread().interrupt();
+                        }
+                    });
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
                 }
             }
-        };
-        arrowAnimation.start();
+        });
+        arrowThread.setDaemon(true);
+        arrowThread.start();
         
         // Если выстрелы закончились, останавливаем игру
         if (shots <= 0) {
@@ -146,13 +166,20 @@ public class GameController {
         target1MovingDown = true;
         target2MovingDown = true;
         
-        gameLoop.start();
+        // Запускаем новый поток
+        if (gameThread != null && gameThread.isAlive()) {
+            gameThread.interrupt();
+        }
+        setupGameThread();
+        gameThread.start();
     }
 
     @FXML
     private void stopGame() {
         isPlaying = false;
-        gameLoop.stop();
+        if (gameThread != null) {
+            gameThread.interrupt();
+        }
     }
 
     @FXML
