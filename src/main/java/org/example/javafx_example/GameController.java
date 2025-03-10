@@ -10,6 +10,9 @@ import javafx.scene.shape.Polygon;
 import javafx.scene.shape.Rectangle;
 import javafx.scene.Group;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class GameController {
     @FXML private AnchorPane gamePane;
     @FXML private Rectangle shooterBase;
@@ -31,6 +34,10 @@ public class GameController {
     private double target2Speed = target1Speed*2;
     private boolean target1MovingDown = true;
     private boolean target2MovingDown = true;
+    
+    // Списки для отслеживания активных стрел и их потоков
+    private List<Group> activeArrows = new ArrayList<>();
+    private List<Thread> arrowThreads = new ArrayList<>();
 
     @FXML
     public void initialize() {
@@ -115,6 +122,7 @@ public class GameController {
         arrow.setLayoutY(shooter.getLayoutY());
         
         gamePane.getChildren().add(arrow);
+        activeArrows.add(arrow); // Добавляем стрелу в список активных
         
         // Создаем поток для анимации стрелы
         Thread arrowThread = new Thread(() -> {
@@ -133,21 +141,18 @@ public class GameController {
                                 hitRegistered[0] = true;
                                 score += 1;
                                 scoreLabel.setText(String.valueOf(score));
-                                gamePane.getChildren().remove(arrow);
-                                Thread.currentThread().interrupt();
+                                removeArrow(arrow, Thread.currentThread());
                             } else if (arrow.getBoundsInParent().intersects(target2.getBoundsInParent())) {
                                 hitRegistered[0] = true;
                                 score += 2;
                                 scoreLabel.setText(String.valueOf(score));
-                                gamePane.getChildren().remove(arrow);
-                                Thread.currentThread().interrupt();
+                                removeArrow(arrow, Thread.currentThread());
                             }
                         }
                         
                         // Удаляем стрелу, если она вылетела за пределы экрана
                         if (arrow.getLayoutX() > gamePane.getWidth()) {
-                            gamePane.getChildren().remove(arrow);
-                            Thread.currentThread().interrupt();
+                            removeArrow(arrow, Thread.currentThread());
                         }
                     });
                 } catch (InterruptedException e) {
@@ -157,12 +162,36 @@ public class GameController {
             }
         });
         arrowThread.setDaemon(true);
+        arrowThreads.add(arrowThread); // Добавляем поток в список
         arrowThread.start();
         
         // Если выстрелы закончились, останавливаем игру
         if (shots <= 0) {
             stopGame();
         }
+    }
+    
+    // Метод для удаления стрелы и её потока
+    private void removeArrow(Group arrow, Thread thread) {
+        gamePane.getChildren().remove(arrow);
+        activeArrows.remove(arrow);
+        arrowThreads.remove(thread);
+        thread.interrupt();
+    }
+    
+    // Метод для удаления всех активных стрел
+    private void removeAllArrows() {
+        Platform.runLater(() -> {
+            for (Group arrow : new ArrayList<>(activeArrows)) {
+                gamePane.getChildren().remove(arrow);
+            }
+            activeArrows.clear();
+        });
+        
+        for (Thread thread : new ArrayList<>(arrowThreads)) {
+            thread.interrupt();
+        }
+        arrowThreads.clear();
     }
 
     @FXML
@@ -173,6 +202,9 @@ public class GameController {
         shots = 15;
         scoreLabel.setText("0");
         shotsLabel.setText("15");
+        
+        // Удаляем все стрелы перед началом новой игры
+        removeAllArrows();
         
         // Сброс позиций мишеней
         target1.setLayoutY(track1.getStartY()+((track1.getEndY()-track1.getStartY())/2));
@@ -195,11 +227,18 @@ public class GameController {
     @FXML
     private void stopGame() {
         isPlaying = false;
+        
+        // Останавливаем потоки мишеней
         if (target1Thread != null) {
             target1Thread.interrupt();
         }
         if (target2Thread != null) {
             target2Thread.interrupt();
+        }
+        
+        // Удаляем все стрелы
+        if (shots!=0) {
+            removeAllArrows();
         }
     }
 
