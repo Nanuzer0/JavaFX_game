@@ -237,6 +237,14 @@ public class ServerGame {
             if (player.getScore() >= 6) {
                 endGame(player.getName());
             }
+            // Проверка на 0 выстрелов у всех
+            int sum = 0;
+            for (Player p : players.values()) {
+                sum += p.getShots();
+            }
+            if (sum==0) {
+                endGame("None");
+            }
         });
         
         arrowThread.setDaemon(true);

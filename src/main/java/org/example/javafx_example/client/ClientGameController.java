@@ -20,6 +20,7 @@ public class ClientGameController {
     private double target2Y = 300.0;
     private String myPlayerName;
     private String pauseRequestedBy = null;
+    private boolean ShownAlert = false;
     
     // Доступные цвета для игроков
     private Color[] playerColors = {
@@ -39,6 +40,7 @@ public class ClientGameController {
     public void setGameStarted() {
         isGameRunning = true;
         isPaused = false;
+        ShownAlert = false;
         gameView.updateGameStatus("Игра началась!");
     }
     
@@ -83,7 +85,7 @@ public class ClientGameController {
         
         // Обновляем статус игры с информацией о счете
         PlayerInfo myInfo = players.get(myPlayerName);
-        if (myInfo != null) {
+        if (myInfo != null && isGameRunning) {
             gameView.updateGameStatus(String.format(
                 "Игра %s | Ваш счет: %d | Выстрелов: %d",
                 isPaused ? "на паузе" : "идет",
@@ -117,11 +119,13 @@ public class ClientGameController {
     
     public void showGameOver(String winner) {
         Platform.runLater(() -> {
+            ShownAlert = true;
             Alert alert = new Alert(Alert.AlertType.INFORMATION);
             alert.setTitle("Игра окончена");
             alert.setHeaderText("Победитель: " + winner);
             alert.setContentText("Для начала новой игры нажмите кнопку 'Готов'.");
             alert.showAndWait();
+
             
             isGameRunning = false;
             isPaused = false;
@@ -145,11 +149,11 @@ public class ClientGameController {
             setGameStarted();
         } else if (message.equals("GAME_PAUSED")) {
             setGamePaused();
-        } else if (message.equals("GAME_RESUMED")) {
-            setGameResumed();
         } else if (message.startsWith("GAME_OVER:")) {
             String winner = message.substring(10);
-            showGameOver(winner);
+            if (!ShownAlert) {
+                showGameOver(winner);
+            }
         } else if (message.startsWith("ARROW:")) {
             // Создаем стрелу с ID
             String[] parts = message.split(":");
