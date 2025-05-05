@@ -198,17 +198,19 @@ public class ClientGameController {
                 double y = Double.parseDouble(parts[4]);
                 String arrowId = parts[5];
                 
-                gameView.showHitEffect(targetNum, x, y);
-                gameView.removeArrow(playerName, arrowId);
+                gameView.showHitEffect(x, y, targetNum);
+                gameView.removeArrow(arrowId);
             }
         } else if (message.startsWith("MISS:")) {
             // Информация о промахе с ID стрелы
             String[] parts = message.split(":");
-            if (parts.length >= 3) {
-                String playerName = parts[1];
+            if (parts.length >= 3) {  // Учитываем ID стрелы
                 String arrowId = parts[2];
-                gameView.removeArrow(playerName, arrowId);
+                gameView.removeArrow(arrowId);
             }
+        } else if (message.startsWith("LEADERBOARD:")) {
+            // Обработка таблицы лидеров
+            showLeaderboard(message.substring(12));
         } else if (message.startsWith("GAME_PAUSED:")) {
             // Обрабатываем сообщение о паузе с указанием игрока
             String pausedBy = message.substring(12);
@@ -245,6 +247,60 @@ public class ClientGameController {
     
     public boolean isGameRunning() {
         return isGameRunning;
+    }
+    
+    // Метод для запроса таблицы лидеров
+    public void requestLeaderboard() {
+        client.sendMessage("GET_LEADERBOARD");
+    }
+    
+    // Отображение таблицы лидеров
+    private void showLeaderboard(String leaderboardData) {
+        Platform.runLater(() -> {
+            List<LeaderboardEntry> entries = parseLeaderboardData(leaderboardData);
+            gameView.showLeaderboard(entries);
+        });
+    }
+    
+    // Парсинг данных таблицы лидеров
+    private List<LeaderboardEntry> parseLeaderboardData(String data) {
+        List<LeaderboardEntry> entries = new ArrayList<>();
+        if (data.isEmpty()) return entries;
+        
+        String[] playerData = data.split(";");
+        for (String playerInfo : playerData) {
+            if (playerInfo.isEmpty()) continue;
+            
+            String[] parts = playerInfo.split(",");
+            if (parts.length >= 2) {
+                String username = parts[0];
+                int wins = Integer.parseInt(parts[1]);
+                entries.add(new LeaderboardEntry(username, wins));
+            }
+        }
+        
+        // Сортируем по количеству побед (по убыванию)
+        entries.sort((a, b) -> Integer.compare(b.getWins(), a.getWins()));
+        return entries;
+    }
+    
+    // Класс для хранения информации о записи в таблице лидеров
+    public static class LeaderboardEntry {
+        private final String username;
+        private final int wins;
+        
+        public LeaderboardEntry(String username, int wins) {
+            this.username = username;
+            this.wins = wins;
+        }
+        
+        public String getUsername() {
+            return username;
+        }
+        
+        public int getWins() {
+            return wins;
+        }
     }
     
     public static class PlayerInfo {

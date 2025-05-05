@@ -1,5 +1,9 @@
 package org.example.javafx_example.server;
 
+import org.example.javafx_example.server.database.HibernateUtil;
+import org.example.javafx_example.server.database.UserEntity;
+import org.example.javafx_example.server.database.UserRepository;
+
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -19,8 +23,14 @@ public class GameServer {
     private boolean isRunning = true;
     private boolean gameEnded = false;
     
+    // Репозиторий для работы с пользователями
+    private UserRepository userRepository;
+    
     public GameServer() {
         this.game = new ServerGame(this);
+        this.userRepository = new UserRepository();
+        // Инициализируем Hibernate при запуске сервера
+        HibernateUtil.getSessionFactory();
     }
     
     public void start() {
@@ -111,6 +121,56 @@ public class GameServer {
         gameEnded = true;
     }
     
+    /**
+     * Увеличивает количество побед для указанного игрока
+     */
+    public void incrementPlayerWins(String playerName) {
+        try {
+            userRepository.incrementUserWins(playerName);
+            System.out.println("Игрок " + playerName + " получил победу в базе данных");
+        } catch (Exception e) {
+            System.err.println("Ошибка при обновлении побед игрока: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+    
+    /**
+     * Получает таблицу лидеров из базы данных
+     */
+    public List<UserEntity> getLeaderboard() {
+        return userRepository.getLeaderboard();
+    }
+    
+    /**
+     * Отправляет таблицу лидеров указанному клиенту
+     */
+    public void sendLeaderboardToClient(ClientHandler client) {
+        List<UserEntity> leaderboard = getLeaderboard();
+        StringBuilder sb = new StringBuilder("LEADERBOARD:");
+        
+        for (UserEntity user : leaderboard) {
+            sb.append(user.getUsername()).append(",")
+              .append(user.getWins()).append(";");
+        }
+        
+        client.sendMessage(sb.toString());
+    }
+    
+    /**
+     * Отправляет таблицу лидеров всем подключенным клиентам
+     */
+    public void broadcastLeaderboard() {
+        List<UserEntity> leaderboard = getLeaderboard();
+        StringBuilder sb = new StringBuilder("LEADERBOARD:");
+        
+        for (UserEntity user : leaderboard) {
+            sb.append(user.getUsername()).append(",")
+              .append(user.getWins()).append(";");
+        }
+        
+        broadcast(sb.toString());
+    }
+    
     public void shutdown() {
         isRunning = false;
         pool.shutdown();
@@ -121,6 +181,9 @@ public class GameServer {
         } catch (IOException e) {
             e.printStackTrace();
         }
+        
+        // Останавливаем Hibernate при выключении сервера
+        HibernateUtil.shutdown();
     }
     
     public static void main(String[] args) {

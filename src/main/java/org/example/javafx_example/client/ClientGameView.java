@@ -43,6 +43,9 @@ public class ClientGameView {
     // Добавьте поля для кнопок
     private Button readyButton;
     private Button shootButton;
+    private Button leaderboardButton;
+    private VBox leaderboardBox;
+    private boolean leaderboardVisible = false;
     
     public ClientGameView(ClientGameController controller) {
         this.controller = controller;
@@ -101,7 +104,10 @@ public class ClientGameView {
         shootButton = new Button("Выстрел");
         shootButton.setOnAction(e -> controller.shoot());
         
-        controlsBox.getChildren().addAll(readyButton, shootButton);
+        leaderboardButton = new Button("Таблица лидеров");
+        leaderboardButton.setOnAction(e -> controller.requestLeaderboard());
+        
+        controlsBox.getChildren().addAll(readyButton, shootButton, leaderboardButton);
         
         // Добавляем все элементы на панель
         root.getChildren().addAll(shooterBase, track1, track2, target1, target2, infoPanel, controlsBox);
@@ -198,20 +204,18 @@ public class ClientGameView {
         }
     }
     
-    public void showHitEffect(int targetNum, double x, double y) {
+    public void showHitEffect(double x, double y, int targetNum) {
+        // Создаем эффект попадания (вспышка)
+        Circle hitEffect = new Circle(x, y, targetNum == 1 ? 35 : 20);
+        hitEffect.setFill(new Color(1, 1, 0, 0.7)); // Желтая вспышка с прозрачностью
+        
         Platform.runLater(() -> {
-            Circle targetCircle = targetNum == 1 ? target1 : target2;
-            Circle hitEffect = new Circle(targetCircle.getCenterX(), y, targetNum == 1 ? 30 : 15);
-            hitEffect.setFill(Color.ORANGE.deriveColor(1, 1, 1, 0.7));
-            hitEffect.setStroke(Color.YELLOW);
-            hitEffect.setStrokeWidth(2);
-            
             root.getChildren().add(hitEffect);
             
-            // Анимация исчезновения эффекта
+            // Запускаем анимацию исчезновения
             new Thread(() -> {
                 try {
-                    Thread.sleep(500);
+                    Thread.sleep(300);
                     Platform.runLater(() -> root.getChildren().remove(hitEffect));
                 } catch (InterruptedException e) {
                     e.printStackTrace();
@@ -242,26 +246,18 @@ public class ClientGameView {
         return playerColors[playerIndex % playerColors.length];
     }
     
-    public void removeArrow(String playerName, String arrowId) {
-        if (playerArrows.containsKey(playerName) && playerArrows.get(playerName).containsKey(arrowId)) {
-            Group arrow = playerArrows.get(playerName).get(arrowId);
-            Platform.runLater(() -> {
-                root.getChildren().remove(arrow);
-                playerArrows.get(playerName).remove(arrowId);
-            });
-        }
-    }
-    
-    // Для обратной совместимости
-    public void removeArrow(String playerName) {
-        if (playerArrows.containsKey(playerName)) {
-            Map<String, Group> arrowsMap = playerArrows.get(playerName);
-            for (Group arrow : new ArrayList<>(arrowsMap.values())) {
+    public void removeArrow(String arrowId) {
+        // Проходим по всем игрокам и ищем стрелу с указанным ID
+        for (String playerName : playerArrows.keySet()) {
+            Map<String, Group> arrows = playerArrows.get(playerName);
+            if (arrows.containsKey(arrowId)) {
+                Group arrow = arrows.get(arrowId);
                 Platform.runLater(() -> {
                     root.getChildren().remove(arrow);
                 });
+                arrows.remove(arrowId);
+                return;
             }
-            arrowsMap.clear();
         }
     }
     
@@ -280,5 +276,80 @@ public class ClientGameView {
                 readyButton.setText("Готов");
             }
         });
+    }
+    
+    /**
+     * Отображает таблицу лидеров
+     */
+    public void showLeaderboard(List<ClientGameController.LeaderboardEntry> entries) {
+        if (leaderboardBox == null) {
+            // Создаем панель для таблицы лидеров
+            leaderboardBox = new VBox(5);
+            leaderboardBox.setStyle("-fx-background-color: rgba(255, 255, 255, 0.85); -fx-padding: 10px;");
+            leaderboardBox.setPrefWidth(300);
+            leaderboardBox.setPrefHeight(400);
+            
+            // Располагаем в центре экрана
+            AnchorPane.setTopAnchor(leaderboardBox, 100.0);
+            AnchorPane.setLeftAnchor(leaderboardBox, 250.0);
+            
+            Label titleLabel = new Label("Таблица лидеров");
+            titleLabel.setFont(new Font(20));
+            titleLabel.setStyle("-fx-font-weight: bold;");
+            
+            Button closeButton = new Button("Закрыть");
+            closeButton.setOnAction(e -> {
+                root.getChildren().remove(leaderboardBox);
+                leaderboardVisible = false;
+            });
+            
+            leaderboardBox.getChildren().addAll(titleLabel);
+            
+            // Создаем заголовки таблицы
+            HBox headerBox = new HBox(10);
+            Label usernameHeader = new Label("Игрок");
+            Label winsHeader = new Label("Победы");
+            
+            usernameHeader.setPrefWidth(200);
+            winsHeader.setPrefWidth(50);
+            
+            usernameHeader.setStyle("-fx-font-weight: bold;");
+            winsHeader.setStyle("-fx-font-weight: bold;");
+            
+            headerBox.getChildren().addAll(usernameHeader, winsHeader);
+            leaderboardBox.getChildren().add(headerBox);
+        } else {
+            // Очищаем существующую таблицу, оставляя заголовок и шапку
+            if (leaderboardBox.getChildren().size() > 2) {
+                leaderboardBox.getChildren().remove(2, leaderboardBox.getChildren().size());
+            }
+        }
+        
+        // Добавляем строки с данными
+        for (ClientGameController.LeaderboardEntry entry : entries) {
+            HBox row = new HBox(10);
+            Label usernameLabel = new Label(entry.getUsername());
+            Label winsLabel = new Label(Integer.toString(entry.getWins()));
+            
+            usernameLabel.setPrefWidth(200);
+            winsLabel.setPrefWidth(50);
+            
+            row.getChildren().addAll(usernameLabel, winsLabel);
+            leaderboardBox.getChildren().add(row);
+        }
+        
+        // Добавляем кнопку закрытия в конец
+        Button closeButton = new Button("Закрыть");
+        closeButton.setOnAction(e -> {
+            root.getChildren().remove(leaderboardBox);
+            leaderboardVisible = false;
+        });
+        leaderboardBox.getChildren().add(closeButton);
+        
+        // Добавляем таблицу на экран, если она еще не отображается
+        if (!leaderboardVisible) {
+            root.getChildren().add(leaderboardBox);
+            leaderboardVisible = true;
+        }
     }
 } 

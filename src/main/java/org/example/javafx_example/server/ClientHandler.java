@@ -68,6 +68,9 @@ public class ClientHandler implements Runnable {
         } else if (message.equals("GAME_OVER_ACK")) {
             // Клиент подтвердил получение сообщения о конце игры
             server.setGameEnded();
+        } else if (message.equals("GET_LEADERBOARD")) {
+            // Клиент запросил таблицу лидеров
+            server.sendLeaderboardToClient(this);
         }
     }
     

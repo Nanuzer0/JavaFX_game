@@ -276,9 +276,16 @@ public class ServerGame {
         isGameRunning = false;
         isPaused = false;
         
+        // Сохраняем победу игрока в базе данных
+        server.incrementPlayerWins(winnerName);
+        
+        // Обновляем таблицу лидеров для всех клиентов
+        server.broadcastLeaderboard();
+        
         // Сбрасываем статус готовности всех игроков
         server.resetAllPlayersReady();
         
+        server.setGameEnded();
         server.broadcast("GAME_OVER:" + winnerName);
     }
     
