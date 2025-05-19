@@ -4,7 +4,10 @@ import org.example.javafx_example.server.database.HibernateUtil;
 import org.example.javafx_example.server.database.UserEntity;
 import org.example.javafx_example.server.database.UserRepository;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
@@ -14,9 +17,11 @@ import java.util.concurrent.Executors;
 
 public class GameServer {
     private static final int PORT = 5555;
+    private static final int HTTP_PORT = 8080;
     private static final int MAX_PLAYERS = 4;
     
     private ServerSocket serverSocket;
+    private ServerSocket httpServerSocket;
     private List<ClientHandler> clients = new ArrayList<>();
     private ExecutorService pool = Executors.newFixedThreadPool(MAX_PLAYERS);
     private ServerGame game;
@@ -35,8 +40,12 @@ public class GameServer {
     
     public void start() {
         try {
+            // Запускаем основной игровой сервер
             serverSocket = new ServerSocket(PORT);
-            System.out.println("Сервер запущен на порту " + PORT);
+            System.out.println("Игровой сервер запущен на порту " + PORT);
+            
+            // Запускаем HTTP-сервер для Android-клиентов
+            startHttpServer();
             
             while (isRunning && clients.size() < MAX_PLAYERS) {
                 System.out.println("Ожидание подключения игроков... (" + clients.size() + "/" + MAX_PLAYERS + ")");
@@ -53,6 +62,62 @@ public class GameServer {
             System.err.println("Ошибка сервера: " + e.getMessage());
             shutdown();
         }
+    }
+    
+    private void startHttpServer() {
+        new Thread(() -> {
+            try {
+                httpServerSocket = new ServerSocket(HTTP_PORT);
+                System.out.println("HTTP-сервер запущен на порту " + HTTP_PORT);
+                
+                while (isRunning) {
+                    Socket clientSocket = httpServerSocket.accept();
+                    handleHttpRequest(clientSocket);
+                }
+            } catch (IOException e) {
+                System.err.println("Ошибка HTTP-сервера: " + e.getMessage());
+            }
+        }).start();
+    }
+    
+    private void handleHttpRequest(Socket clientSocket) {
+        new Thread(() -> {
+            try {
+                BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+                PrintWriter out = new PrintWriter(clientSocket.getOutputStream(), true);
+                
+                String request = in.readLine();
+                if (request != null && request.startsWith("GET /leaderboard")) {
+                    // Отправляем заголовки HTTP-ответа
+                    out.println("HTTP/1.1 200 OK");
+                    out.println("Content-Type: application/json");
+                    out.println("Access-Control-Allow-Origin: *");
+                    out.println();
+                    
+                    // Получаем и отправляем таблицу лидеров
+                    List<UserEntity> leaderboard = getLeaderboard();
+                    StringBuilder json = new StringBuilder("[");
+                    for (int i = 0; i < leaderboard.size(); i++) {
+                        UserEntity user = leaderboard.get(i);
+                        json.append("{\"username\":\"").append(user.getUsername())
+                            .append("\",\"wins\":").append(user.getWins()).append("}");
+                        if (i < leaderboard.size() - 1) {
+                            json.append(",");
+                        }
+                    }
+                    json.append("]");
+                    out.println(json.toString());
+                } else {
+                    // Отправляем ошибку 404
+                    out.println("HTTP/1.1 404 Not Found");
+                    out.println();
+                }
+                
+                clientSocket.close();
+            } catch (IOException e) {
+                System.err.println("Ошибка при обработке HTTP-запроса: " + e.getMessage());
+            }
+        }).start();
     }
     
     public void broadcast(String message) {
@@ -177,6 +242,9 @@ public class GameServer {
         try {
             if (serverSocket != null) {
                 serverSocket.close();
+            }
+            if (httpServerSocket != null) {
+                httpServerSocket.close();
             }
         } catch (IOException e) {
             e.printStackTrace();
